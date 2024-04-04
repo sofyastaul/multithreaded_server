@@ -1,24 +1,57 @@
 import socket    #предоставляет возможность работать с сетевыми сокетами, что позволяет создавать клиент-серверные сетевые приложения
 import threading     #предоставляет инструменты для работы с потоками (threads) в многопоточных программах
+import json
+
+def data_receiving(message, client_socket, addr):
+    while True:
+        data = client_socket.recv(1024)
+        if not data:
+            break
+        message += data
+
+        if message == 2:
+            print("Отключение клиента:", addr)
+            client_socket.send("Разрыв соединения с сервером".encode())
+            client_socket.close()
+            break
+
+        return json.loads(message.decode())
+
+def compare_files(file1, file2): #функция сравнения двух файлов
+    extra_elements = []
+
+    for el in file2:
+        if el in file1:
+            file1.remove(el)
+        else:
+            extra_elements.append(el)
+
+    missing_elements = file1
+    # функция высылает клиенту код действия и элементы, с которыми их необходимо произвести. Коды действий:
+    # 0 - Массивы полностью совпадают.
+    # 1 - Необходимо добавить в массив 2 элементы
+    # 2 - Необходимо удалить из массива 2 элементы
+
+    if not missing_elements and not extra_elements:
+        return('0')
+    elif missing_elements and extra_elements:
+        return('1 2', missing_elements, extra_elements)
+    elif missing_elements:
+        return('1', missing_elements)
+    else:
+        return('2', extra_elements)
+
 
 def handle_client(client_socket, addr):
     print("Подключение клиента:", addr)
 
-    while True:
-        data = client_socket.recv(1024)    #метод recv() считывает данные, переданные через соединение client_socket
-                                           #параметр 102 означает, что метод пытается считать до 1024 байт данных из потока
-        if not data:
-            break
-        message = data.decode()    #метод decode() преобразует байтовые данные, полученные с помощью recv(), в строку
+    file1 = data_receiving(b'', client_socket, addr)
+    file2 = data_receiving(b'', client_socket, addr)
 
-        if message.lower() == 'отключение от сервера':
-            print("Отключение клиента:", addr)
-            client_socket.send("Разрыв соединения с сервером".encode())
-            client_socket.close()    #используется для закрытия сокета после завершения работы с ним
-            break
-        client_socket.send("все окей".encode())    #отправляем ответ клиенту. Метод encode() преобразует строку (текст) в байтовый объект,
-                                                   #который может быть отправлен через сетевое соединение
-    client_socket.close()    #используется для закрытия сокета после завершения работы с ним
+    answer = compare_files(file1, file2)
+    client_socket.send(json.dumps(answer).encode())
+    print("Отправленное сообшение:", answer)
+
 
 # Создание TCP-сервера
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)    #создание нового объекта сокета для работы с сетью
