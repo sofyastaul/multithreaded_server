@@ -9,28 +9,49 @@ def data_receiving(message, client_socket, addr):
             break
         message += data
 
-        if message.lower() == 'отключение от сервера':
+        if message == 2:
             print("Отключение клиента:", addr)
             client_socket.send("Разрыв соединения с сервером".encode())
             client_socket.close()
             break
-        client_socket.send("Сообщение успешно обработано сервером".encode())
 
         return json.loads(message.decode())
 
+def compare_files(file1, file2): #функция сравнения двух файлов
+    extra_elements = []
+
+    for el in file2:
+        if el in file1:
+            file1.remove(el)
+        else:
+            extra_elements.append(el)
+
+    missing_elements = file1
+    # функция высылает клиенту код действия и элементы, с которыми их необходимо произвести. Коды действий:
+    # 0 - Массивы полностью совпадают.
+    # 1 - Необходимо добавить в массив 2 элементы
+    # 2 - Необходимо удалить из массива 2 элементы
+
+    if not missing_elements and not extra_elements:
+        return('0')
+    elif missing_elements and extra_elements:
+        return('1 2', missing_elements, extra_elements)
+    elif missing_elements:
+        return('1', missing_elements)
+    else:
+        return('2', extra_elements)
 
 
 def handle_client(client_socket, addr):
     print("Подключение клиента:", addr)
 
-    message = data_receiving(b'', client_socket, addr)
+    file1 = data_receiving(b'', client_socket, addr)
+    file2 = data_receiving(b'', client_socket, addr)
 
-    print("Полученное сообщение:", message)
-    ans = json.dumps(message).encode()
-    client_socket.send(ans)
-    print("Отправленное сообшение:", ans)
+    answer = compare_files(file1, file2)
+    client_socket.send(json.dumps(answer).encode())
+    print("Отправленное сообшение:", answer)
 
-    client_socket.close()    #используется для закрытия сокета после завершения работы с ним
 
 # Создание TCP-сервера
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)    #создание нового объекта сокета для работы с сетью
